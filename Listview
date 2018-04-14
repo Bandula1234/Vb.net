@@ -1,0 +1,811 @@
+Imports System.Data
+Imports System.Data.OleDb
+Imports System.Drawing.Drawing2D
+Imports System.Text
+
+Public Class frmEquipment
+
+    Private mstrMaintMode As String
+    Private mblnFormActivated As Boolean
+    Private mblnUpdateInProgress As Boolean
+
+    Private Sub SetupCustLVCols()
+        With Me.LV
+            .Items.Clear()
+            With .Columns
+                .Add("Req No", CInt(62), HorizontalAlignment.Left)
+                .Add("Req Date", CInt(0), HorizontalAlignment.Left)
+                .Add("Description", CInt(350), HorizontalAlignment.Left)
+                .Add("Unit", CInt(50), HorizontalAlignment.Center)
+                .Add("Quantity", CInt(65), HorizontalAlignment.Center)
+                .Add("Price", CInt(75), HorizontalAlignment.Left)
+                .Add("Order No", CInt(100), HorizontalAlignment.Left)
+                .Add("Order Date", CInt(75), HorizontalAlignment.Left)
+                .Add("Telphone No", CInt(0), HorizontalAlignment.Left)
+                .Add("Supplier", CInt(0), HorizontalAlignment.Left)
+                .Add("Address", CInt(0), HorizontalAlignment.Left)
+                .Add("File No", CInt(0), HorizontalAlignment.Left)
+                .Add("Year", CInt(0), HorizontalAlignment.Left)
+                .Add("Progress", CInt(0), HorizontalAlignment.Left)
+                .Add("Item No", CInt(0), HorizontalAlignment.Left)
+                .Add("Vote No", CInt(0), HorizontalAlignment.Left)
+                .Add("All Amount", CInt(0), HorizontalAlignment.Left)
+                .Add("No", CInt(0), HorizontalAlignment.Left)
+            End With
+
+        End With
+
+    End Sub
+
+    Private Sub PopulateEquipmentrDetail()
+        'for use with LV_SelectedIndexChanged
+
+        With Me.LV.SelectedItems(0)
+            cmbRequisition.Text = .SubItems(0).Text
+            txtRequisttionDate.Text = .SubItems(1).Text
+            txtDescription.Text = .SubItems(2).Text
+            txtUnit.Text = .SubItems(3).Text
+            txtQuantity.Text = .SubItems(4).Text
+            txtPrice.Text = .SubItems(5).Text
+            txtOrderNo.Text = .SubItems(6).Text
+            txtOrderDate.Text = .SubItems(7).Text
+            txtSupplierTelephoneNo.Text = .SubItems(8).Text
+            txtSupplier.Text = .SubItems(9).Text
+            txtSupplierAddress.Text = .SubItems(10).Text
+            txtFileNo.Text = .SubItems(11).Text
+            txtYear.Text = .SubItems(12).Text
+            cmbProgress.Text = .SubItems(13).Text
+            txtItemCode.Text = .SubItems(14).Text
+            txtVoteNo.Text = .SubItems(15).Text
+            txtAllowcatedAmount.Text = .SubItems(16).Text
+        End With
+    End Sub
+
+    Private Sub LV_SelectedIndexChanged(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles LV.SelectedIndexChanged
+        If Me.LV.SelectedItems.Count = 0 Then Exit Sub
+        PopulateEquipmentrDetail()
+    End Sub
+
+    Private Sub LoadCustomerListView()
+        Try
+            Dim objCmd As OleDbCommand
+            Dim objReader As OleDbDataReader
+            Dim objLI As ListViewItem
+            Dim strSQL As String
+            Me.LV.Items.Clear()
+            Me.LV.GridLines = True
+            strSQL = "SELECT * FROM Equipment ORDER BY EReqNo"
+            Con = New OleDbConnection(ConnectionString)
+            objCmd = New OleDbCommand(strSQL, Con)
+            objCmd.CommandType = CommandType.Text  
+            objCmd.Connection.Open()
+            objReader = objCmd.ExecuteReader
+            If objReader.HasRows = True Then
+                Do While objReader.Read
+                    objLI = New ListViewItem(ReplaceDBNull(objReader("EReqNo")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EReDate")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EDes")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EUnit")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EQuantity")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EPrice")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EOrderNo")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EOrderDate")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("ESupTelNo")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("ESupplier")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("ESuppAdd")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("FileNo")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EYear")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EProgress")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EItemNo")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EVoteNo")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("EVoteAllow")))
+                    objLI.SubItems.Add(ReplaceDBNull(objReader("No")))
+                    Me.LV.Items.Add(objLI)
+                Loop
+            End If
+            If (Not objReader Is Nothing) Then
+                objReader.Close()
+            End If
+            If Con.State = ConnectionState.Open Then
+                Con.Close()
+            End If
+            If Me.LV.Items.Count > 0 Then
+                Me.LV.Items(0).Selected = True
+            End If
+
+        Catch ex As Exception
+            MsgBox(ex.ToString)
+        Finally
+        End Try
+
+    End Sub
+
+    Private Sub btnSave_Click(sender As System.Object, e As System.EventArgs) Handles btnSave.Click
+
+        Try
+            'If txtNewItemCode.TextLength > 0 Then
+            '    txtNewItemCode.Text = txtItemCode.Text
+            '    txtNewItemCode.BringToFront()
+            'End If
+
+            Dim objNewListViewItem As ListViewItem = Nothing
+            Dim intIDField As Integer
+            Dim strSQL As String = Nothing
+            If Not ValidateFormFields() Then Exit Sub
+            If Me.mstrMaintMode = "ADD" Then
+                intIDField = GetNextRecordID("Equipment", "No")
+                'MsgBox(intIDField)
+                strSQL = " Insert INTO Equipment ( [No],[EReqNo] , [EReDate], [EDes], [EUnit], [EQuantity], [EPrice], [EOrderNo], [EOrderDate], [ESupTelNo], [ESupplier], [ESuppAdd], [FileNo], [EYear], [EProgress], [EItemNo], [EVoteNo], [EVoteAllow])  VALUES    ('" & intIDField & "','" + cmbRequisition.Text + "' ," + (CorrectDate(Replace("#" & txtRequisttionDate.Text & "#", "'", "''"), "NULL")) + ",'" + txtDescription.Text + "','" + txtUnit.Text + "'," + (ReplaceDBNull(txtQuantity.Text, "NULL")) + "," + (ReplaceDBNull(txtPrice.Text, "NULL")) + ",'" + txtOrderNo.Text + "'," + (ReplaceDBNull(txtOrderDate.Text, "NULL")) + " ,'" + txtSupplierTelephoneNo.Text + "','" + txtSupplier.Text + "','" + txtSupplierAddress.Text + "','" + txtFileNo.Text + "' ," + (ReplaceDBNull(txtYear.Text, "NULL")) + ",'" + cmbProgress.Text + "','" + txtItemCode.Text + "' ,'" + txtVoteNo.Text + "'," + (ReplaceDBNull(txtAllowcatedAmount.Text, "NULL")) + ") "
+                'MsgBox(strSQL)
+                Console.WriteLine(strSQL)
+
+                objNewListViewItem = Me.LV.Items.Add(cmbRequisition.Text, "")
+                For intX As Integer = 1 To 17
+                    objNewListViewItem.SubItems.Add("")
+                Next
+                PopulateListViewItem(objNewListViewItem)
+                With objNewListViewItem
+                    .SubItems(17).Text = CStr(intIDField)
+                    .EnsureVisible()
+                End With
+                objNewListViewItem.Selected = True
+            Else
+                intIDField = CInt(Me.LV.SelectedItems(0).SubItems(17).Text)
+                'MsgBox(intIDField)
+
+                strSQL = "UPDATE Equipment SET "
+                strSQL &= "  EReqNo  = '" & Replace(cmbRequisition.Text, "'", "''") & "'"
+                strSQL &= ", EReDate   = " & Replace("#" & txtRequisttionDate.Text & "#", "'", "''")
+                strSQL &= ", EDes     = '" & Replace(txtDescription.Text, "'", "''") & "'"
+                strSQL &= ", EUnit        = '" & Replace(txtUnit.Text, "'", "''") & "'"
+                strSQL &= ", EQuantity       = '" & txtQuantity.Text & "'"
+                strSQL &= ", EPrice         = " & ReplaceDBNull(txtPrice.Text, "NULL")
+                strSQL &= ", EOrderNo         = '" & txtOrderNo.Text & "'"
+                strSQL &= ", EOrderDate         = " & CorrectDate(Replace("#" & txtOrderDate.Text & "#", "'", "''"), "NULL")
+                strSQL &= ", ESupTelNo         = '" & txtSupplierTelephoneNo.Text & "'"
+                strSQL &= ", ESupplier        = '" & txtSupplier.Text & "'"
+                strSQL &= ", ESuppAdd        = '" & txtSupplierAddress.Text & "'"
+                strSQL &= ", FileNo         = '" & txtFileNo.Text & "'"
+                strSQL &= ", Eyear         = " & ReplaceDBNull(txtYear.Text, "NULL")
+                strSQL &= ", EProgress         = '" & cmbProgress.Text & "'"
+                strSQL &= ", EItemNo         = '" & txtItemCode.Text & "'"
+                strSQL &= ", EVoteNo         = '" & txtVoteNo.Text & "'"
+                strSQL &= ", EVoteAllow         =" & ReplaceDBNull(txtAllowcatedAmount.Text, "NULL")
+                strSQL &= " WHERE ((( [No]) = " & intIDField & ")" & ")" & ";"
+                'MsgBox(strSQL)
+                Console.WriteLine(strSQL)
+                Me.LV.SelectedItems(0).Text = cmbRequisition.Text
+                PopulateListViewItem(Me.LV.SelectedItems(0))
+            End If
+            Dim objCommand As New OleDbCommand(strSQL, Con)
+            objCommand.CommandType = CommandType.Text
+            objCommand.Connection.Open()
+            Dim intUpdated As Integer = objCommand.ExecuteNonQuery()
+            If intUpdated = 1 Then
+                MsgBox(" Database Has Been Updated ", MsgBoxStyle.Critical + MsgBoxStyle.Information, "Updation Was Succcessful")
+            Else
+                MsgBox("Database Updating Was Not Successful! Please Note This Situation.", MsgBoxStyle.Critical + MsgBoxStyle.Information, "Updation Faliure")
+            End If
+            'txtNewItemCode.SendToBack()
+            SetFormState(True)
+            Me.mblnUpdateInProgress = False
+        Catch Oledbex As OleDbException
+            Dim strErrMsg As StringBuilder = Nothing
+            Dim oleError As OleDbError
+            For Each oleError In Oledbex.Errors
+                strErrMsg.Append(oleError.NativeError.ToString() & vbNewLine & oleError.ToString & vbNewLine)
+            Next
+            MessageBox.Show(strErrMsg.ToString, "Data Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+
+        Catch ex As Exception
+            MessageBox.Show(ex.ToString, "Data Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        Finally
+            If Con.State = ConnectionState.Open Then
+                Con.Close()
+            End If
+            'txtNewItemCode.Clear()
+
+            For Each c As Control In GroupBox1.Controls
+                If c.GetType Is GetType(TextBox) Then
+                    c.BackColor = Color.White
+                End If
+            Next
+        End Try
+    End Sub
+
+    Private Sub PopulateListViewItem(ByVal pobjListViewItem As ListViewItem)
+        'btnSave_Click
+        With pobjListViewItem
+            .SubItems(0).Text = cmbRequisition.Text
+            .SubItems(1).Text = txtRequisttionDate.Text
+            .SubItems(2).Text = txtDescription.Text
+            .SubItems(3).Text = txtUnit.Text
+            .SubItems(4).Text = txtQuantity.Text
+            .SubItems(5).Text = txtPrice.Text
+            .SubItems(6).Text = txtOrderNo.Text
+            .SubItems(7).Text = (txtOrderDate.Text)
+            .SubItems(8).Text = txtSupplierTelephoneNo.Text
+            .SubItems(9).Text = txtSupplier.Text
+            .SubItems(10).Text = txtSupplierAddress.Text
+            .SubItems(11).Text = txtFileNo.Text
+            .SubItems(12).Text = txtYear.Text
+            .SubItems(13).Text = cmbProgress.Text
+            .SubItems(14).Text = txtItemCode.Text
+            .SubItems(15).Text = txtVoteNo.Text
+            .SubItems(16).Text = txtAllowcatedAmount.Text
+        End With
+    End Sub
+
+    Private Sub PopulateCustomerDetail()
+        'delete
+        With Me.LV.SelectedItems(0)
+            Me.cmbRequisition.Text = .SubItems(0).Text
+            Me.txtRequisttionDate.Text = .SubItems(1).Text
+            Me.txtDescription.Text = .SubItems(2).Text
+            Me.txtUnit.Text = .SubItems(3).Text
+            Me.txtQuantity.Text = .SubItems(4).Text
+            Me.txtPrice.Text = .SubItems(5).Text
+            Me.txtOrderNo.Text = .SubItems(6).Text
+            Me.txtOrderDate.Text = .SubItems(7).Text
+            Me.txtSupplierTelephoneNo.Text = .SubItems(8).Text
+            Me.txtSupplier.Text = .SubItems(9).Text
+            Me.txtSupplierAddress.Text = .SubItems(10).Text
+            Me.txtFileNo.Text = .SubItems(11).Text
+            Me.txtYear.Text = .SubItems(12).Text
+            Me.cmbProgress.Text = .SubItems(13).Text
+            Me.txtItemCode.Text = .SubItems(14).Text
+            Me.txtVoteNo.Text = .SubItems(15).Text
+            Me.txtAllowcatedAmount.Text = .SubItems(16).Text
+        End With
+    End Sub
+
+    Private Sub ClearCurrRecControls()
+
+        gblnPopulating = True
+
+        Me.cmbRequisition.Text = ""
+        Me.txtRequisttionDate.Text = ""
+        Me.txtDescription.Text = ""
+        Me.txtUnit.Text = ""
+        Me.txtQuantity.Text = ""
+        Me.txtPrice.Text = ""
+        Me.txtOrderNo.Text = ""
+        Me.txtOrderDate.Text = ""
+        Me.txtSupplierTelephoneNo.Text = ""
+        Me.txtSupplier.Text = ""
+        Me.txtSupplierAddress.Text = ""
+        Me.txtFileNo.Text = ""
+        Me.txtYear.Text = ""
+        Me.txtAllowcatedAmount.Text = ""
+        Me.txtItemCode.Text = ""
+        Me.txtVoteNo.Text = ""
+        gblnPopulating = False
+    End Sub
+
+    Private Sub frmEquipment_FormClosing(sender As Object, e As System.Windows.Forms.FormClosingEventArgs) Handles Me.FormClosing
+        If Me.mblnUpdateInProgress Then
+            MsgBox("You Must Save or Cancel The Current Action Before Closing This Window.", MsgBoxStyle.Information, "Cannot Close")
+            e.Cancel = True
+        End If
+    End Sub
+
+    Private Sub Form1_Load(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles MyBase.Load
+        HelpToolTip()
+        Me.txtItemCode.BringToFront()
+        SetupCustLVCols()
+        LoadCustomerListView()
+        SetFormState(True)
+        Me.LV.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize)
+
+        'txtRequisttionDate.Text = Format(txtRequisttionDate.Text, "short Date")
+        'txtOrderDate.Text = Format(txtOrderDate.Text, "short Date")
+
+        Me.txtYear.TabIndex = 1
+        Me.cmbRequisition.TabIndex = 2
+        Me.txtRequisttionDate.TabIndex = 3
+        Me.txtDescription.TabIndex = 4
+        Me.txtQuantity.TabIndex = 5
+        Me.txtItemCode.TabIndex = 6
+        Me.txtAllowcatedAmount.TabIndex = 7
+        Me.txtUnit.TabIndex = 8
+        Me.txtVoteNo.TabIndex = 9
+        Me.cmbProgress.TabIndex = 10
+        Me.txtFileNo.TabIndex = 11
+        Me.txtOrderNo.TabIndex = 12
+        Me.txtSupplier.TabIndex = 13
+        Me.txtSupplierAddress.TabIndex = 14
+        Me.txtOrderDate.TabIndex = 15
+        Me.txtSupplierTelephoneNo.TabIndex = 16
+        Me.txtPrice.TabIndex = 17
+
+        'Me.EqHelpPrivder.SetHelpString(Me.txtNewItemCode, "Select ItemCode Description  and Unit Will Automatically Filled ")
+
+    End Sub
+
+    Private Sub SetFormState(ByVal pblnEnabled As Boolean)
+
+        Me.LV.Enabled = pblnEnabled
+        Me.btnAdd.Enabled = pblnEnabled
+        Me.btnUpdate.Enabled = pblnEnabled
+        Me.btnDelete.Enabled = pblnEnabled
+        Me.btnExit.Enabled = pblnEnabled
+
+        Me.txtYear.Enabled = Not pblnEnabled
+        Me.cmbRequisition.Enabled = True
+        Me.txtRequisttionDate.Enabled = Not pblnEnabled
+        Me.txtDescription.Enabled = Not pblnEnabled
+        Me.txtQuantity.Enabled = Not pblnEnabled
+        Me.txtItemCode.Enabled = Not pblnEnabled
+        Me.txtAllowcatedAmount.Enabled = Not pblnEnabled
+        Me.txtUnit.Enabled = Not pblnEnabled
+        Me.txtVoteNo.Enabled = Not pblnEnabled
+        Me.cmbProgress.Enabled = Not pblnEnabled
+        Me.txtFileNo.Enabled = Not pblnEnabled
+        Me.txtOrderNo.Enabled = Not pblnEnabled
+        Me.txtSupplier.Enabled = Not pblnEnabled
+        Me.txtSupplierAddress.Enabled = Not pblnEnabled
+        Me.txtOrderDate.Enabled = Not pblnEnabled
+        Me.txtSupplierTelephoneNo.Enabled = Not pblnEnabled
+        Me.txtPrice.Enabled = Not pblnEnabled
+
+        Me.btnSave.Enabled = Not pblnEnabled
+        Me.btnCancel.Enabled = Not pblnEnabled
+
+    End Sub
+
+    Private Sub btnAdd_Click(sender As System.Object, e As System.EventArgs) Handles btnAdd.Click
+
+        txtDescription.Focus()
+        For Each c As Control In GroupBox1.Controls
+            If c.GetType Is GetType(TextBox) Then
+                c.BackColor = Color.Yellow
+            End If
+        Next
+
+        Me.mstrMaintMode = "ADD"
+
+
+        FillRequistionno() 'To Get Data From ReqDetail Table
+        AutocompleteItemCode(txtDescription)
+        Me.mblnUpdateInProgress = True
+        ClearCurrRecControls()
+        SetFormState(False)
+        'txtNewItemCode.BringToFront()
+        txtRequisttionDate.Text = System.DateTime.Now
+        txtYear.Text = DateTime.Now.Year
+
+        txtQuantity.Text = "1"
+        txtUnit.Text = "Nos"
+    End Sub
+
+    Sub AutocompleteItemCode(ByVal TextBoxName As TextBox)
+        Try
+            Con.Open()
+            Dim cmd As New OleDbCommand("SELECT  DESCRIPTION FROM  ITEMCODE", Con)
+            Dim ds As New DataSet()
+            Dim da As New OleDbDataAdapter(cmd)
+            da.Fill(ds, "ITEMCODE")
+            Dim col As New AutoCompleteStringCollection()
+            Dim i As Integer = 0
+            For i = 0 To ds.Tables(0).Rows.Count - 1
+                col.Add(ds.Tables(0).Rows(i)("DESCRIPTION").ToString())
+            Next
+            TextBoxName.AutoCompleteSource = AutoCompleteSource.CustomSource
+            TextBoxName.AutoCompleteCustomSource = col
+            TextBoxName.AutoCompleteMode = AutoCompleteMode.Suggest
+        Catch ex As Exception
+            MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        Finally
+            If Con.State = ConnectionState.Open Then
+                Con.Close()
+            End If
+        End Try
+    End Sub
+
+
+    Public Function ReplaceDBNull(ByVal pobjDBField As Object, Optional ByVal pstrReturnValue As String = "") As String
+        If IsDBNull(pobjDBField) OrElse Trim(pobjDBField.ToString) = "" Then
+            Return pstrReturnValue
+        Else
+            Return pobjDBField.ToString
+        End If
+    End Function
+
+    Private Sub frmEquipment_Paint(ByVal sender As Object, ByVal e As System.Windows.Forms.PaintEventArgs) Handles Me.Paint
+
+        '--------Rectangle---------------------------------
+        Dim rect1 As New Rectangle(10, 10, 1000, 588)
+        e.Graphics.DrawRectangle(Pens.Black, rect1)
+        '--------------------------------------------------------
+
+
+        '-------Requisition Details-------------
+        Dim pt1 As New Point(520, 8)
+        e.Graphics.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias
+        Dim path As New GraphicsPath(FillMode.Alternate)
+        Using FontFamily As New FontFamily("Arial")
+            Using SF As New StringFormat
+                SF.Alignment = StringAlignment.Center
+                path.AddString("Requisition Details", FontFamily, CInt(FontStyle.Bold), 28, pt1, SF)
+
+            End Using
+        End Using
+
+        e.Graphics.FillPath(Brushes.Yellow, path)
+        Using Pen As New Pen(Brushes.Black, 2)
+            e.Graphics.DrawPath(Pen, path)
+        End Using
+        '----------------------------------------------------
+
+        '-------Colombo Muncipal Council---------------------------------------
+        Dim pt2 As New Point(515, 42)
+        e.Graphics.SmoothingMode = Drawing2D.SmoothingMode.HighQuality
+        Dim path1 As New GraphicsPath(FillMode.Alternate)
+        Using FontFamily As New FontFamily("Arial")
+            Using SF As New StringFormat
+                SF.Alignment = StringAlignment.Center
+                path1.AddString("Colomb Muncipal Council", FontFamily, CInt(FontStyle.Bold), 25, pt2, SF)
+
+            End Using
+        End Using
+
+        e.Graphics.FillPath(Brushes.Yellow, path1)
+        Using Pen As New Pen(Brushes.Black, 2)
+            e.Graphics.DrawPath(Pen, path1)
+        End Using
+        '----------------------------------------------------
+    End Sub
+
+    Private Sub txtRequisition_KeyPress(ByVal sender As Object, ByVal e As System.Windows.Forms.KeyPressEventArgs)
+        ValidateNumberOnly(e)
+    End Sub
+
+    Private Function ValidateFormFields() As Boolean
+
+        If Not ValidateRequiredField(cmbRequisition, " Select Relevant Requistion No ") Then
+            ValidateFormFields = False
+            Exit Function
+        End If
+
+        If Not ValidateRequiredField(txtRequisttionDate, " Enter Requition Date ") Then
+            ValidateFormFields = False
+            Exit Function
+        End If
+
+        If Not ValidateRequiredField(txtDescription, " Enter Description ") Then
+            ValidateFormFields = False
+            Exit Function
+        End If
+
+        ValidateFormFields = True
+
+    End Function
+
+    Private Sub cmbRequisition_KeyUp(sender As System.Object, e As System.Windows.Forms.KeyEventArgs) Handles cmbRequisition.KeyUp
+        Dim index As Integer
+        Dim actual As String
+        Dim found As String
+        'Do Nothing for some keys such as navigation key
+        If (e.KeyCode = Keys.Back) Or _
+            (e.KeyCode = Keys.Left) Or _
+            (e.KeyCode = Keys.Right Or _
+            (e.KeyCode = Keys.Up) Or _
+            (e.KeyCode = Keys.Delete) Or _
+            (e.KeyCode = Keys.Down) Or _
+            (e.KeyCode = Keys.PageUp) Or _
+            (e.KeyCode = Keys.PageDown) Or _
+            (e.KeyCode = Keys.Home) Or _
+            (e.KeyCode = Keys.End)) Then
+            Return
+        End If
+        actual = Me.cmbRequisition.Text
+        index = Me.cmbRequisition.FindString(actual)
+        If (index > -1) Then
+            found = Me.cmbRequisition.Items(index).ToString
+            Me.cmbRequisition.SelectedIndex = index
+            Me.cmbRequisition.SelectionStart = actual.Length
+            Me.cmbRequisition.SelectionLength = found.Length
+        End If
+    End Sub
+
+
+    Private Sub txtSupplierTelephoneNo_KeyPress(sender As System.Object, e As System.Windows.Forms.KeyPressEventArgs) Handles txtSupplierTelephoneNo.KeyPress
+        If Char.IsDigit(e.KeyChar) Or Asc(e.KeyChar) < 32 Then
+            e.Handled = False
+        Else
+            e.Handled = True
+        End If
+    End Sub
+
+    Private Sub txtPrice_KeyPress(sender As System.Object, e As System.Windows.Forms.KeyPressEventArgs) Handles txtPrice.KeyPress
+        Dim dot As Integer
+        If Not e.KeyChar = "." And Not Char.IsNumber(e.KeyChar) Then
+            e.Handled = True
+        End If
+        If e.KeyChar = Chr(&H8) Then
+            e.Handled = False
+        End If
+        If e.KeyChar = "." And Not txtPrice.Text.IndexOf(".") = -1 Then
+            e.Handled = False
+            dot = txtPrice.Text.IndexOf(".")
+            If dot > -1 Then
+                e.Handled = True
+            End If
+        End If
+    End Sub
+
+    Private Sub txtAllowcatedAmount_KeyPress(sender As System.Object, e As System.Windows.Forms.KeyPressEventArgs) Handles txtAllowcatedAmount.KeyPress
+        If Char.IsDigit(e.KeyChar) Or Asc(e.KeyChar) < 32 Then
+            e.Handled = False
+        Else
+            e.Handled = True
+        End If
+    End Sub
+
+    Private Sub txtQuantity_KeyPress(sender As System.Object, e As System.Windows.Forms.KeyPressEventArgs) Handles txtQuantity.KeyPress
+        If Char.IsDigit(e.KeyChar) Or Asc(e.KeyChar) < 32 Then
+            e.Handled = False
+        Else
+            e.Handled = True
+        End If
+    End Sub
+
+    Private Sub txtYear_KeyPress(sender As System.Object, e As System.Windows.Forms.KeyPressEventArgs) Handles txtYear.KeyPress
+        If Char.IsDigit(e.KeyChar) Or Asc(e.KeyChar) < 32 Then
+            e.Handled = False
+        Else
+            e.Handled = True
+        End If
+    End Sub
+
+    Private Sub btnCancel_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles btnCancel.Click
+        Me.mblnUpdateInProgress = False
+        SetFormState(True)
+        If Me.LV.Items.Count > 0 Then
+            PopulateCustomerDetail()
+        Else
+            ClearCurrRecControls()
+        End If
+
+        For Each c As Control In GroupBox1.Controls
+            If c.GetType Is GetType(TextBox) Then
+                c.BackColor = Color.White
+            End If
+        Next
+
+    End Sub
+
+    Sub FillRequistionno()
+        Using conn As New OleDbConnection(ConnectionString)
+            Dim sql As String = "SELECT EReqNo FROM MReqDetail"
+
+            Dim scmd As New OleDbCommand(sql, conn)
+            Dim sda As New OleDbDataAdapter(scmd)
+            Dim dsMReqDetail As New DataSet
+            scmd.CommandType = CommandType.Text
+
+            Try
+                ' Fill the DataSet.
+                sda.Fill(dsMReqDetail)
+            Catch expSql As Exception
+                MsgBox(expSql.ToString, MsgBoxStyle.OkOnly, "SQL Exception")
+            End Try
+
+            ' Bind the data to the ComboBox controls
+            With cmbRequisition
+                .DataSource = dsMReqDetail.Tables(0)
+                .DisplayMember = "RDescription"
+                .ValueMember = "EReqNo"
+            End With
+        End Using
+    End Sub
+
+    Private Sub btnUpdate_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles btnUpdate.Click
+        For Each c As Control In GroupBox1.Controls
+            If c.GetType Is GetType(TextBox) Then
+                c.BackColor = Color.Yellow
+            End If
+        Next
+
+
+
+        If Me.LV.SelectedItems.Count = 0 Then
+            MsgBox("No Requstion Details selected to update.", vbExclamation, "Update")
+            Exit Sub
+        End If
+        Me.mstrMaintMode = "EDIT"
+        Me.mblnUpdateInProgress = True
+        SetFormState(False)
+
+        txtYear.Focus()
+    End Sub
+
+    Private Sub btnDelete_Click(sender As System.Object, e As System.EventArgs) Handles btnDelete.Click
+        Try
+            Dim strEReqNo As String
+            Dim strEDes As String
+            Dim intNo As Integer
+            Dim intNewSelIndex As Integer
+
+            If Me.LV.SelectedItems.Count = 0 Then
+                MsgBox("No Data selected to delete.", _
+                       vbExclamation, _
+                       "Delete")
+                Exit Sub
+            End If
+
+            With Me.LV.SelectedItems(0)
+                strEReqNo = .Text
+                strEDes = .SubItems(2).Text
+                intNo = CInt(.SubItems(17).Text)
+            End With
+
+            If MsgBox("Are you sure that you want to delete Customer '" _
+                    & strEReqNo & " " & strEDes & "'?", _
+                      vbYesNo + vbQuestion, _
+                      "Confirm Delete") = vbNo Then
+                Exit Sub
+            End If
+            Dim strSQL As String = "DELETE FROM Equipment WHERE [No] = " & intNo
+            'Dim objConn As New OleDbConnection(Con)
+            Dim objCommand As New OleDbCommand(strSQL, Con)
+            objCommand.CommandType = CommandType.Text
+            objCommand.Connection.Open()
+            Dim intDeleted As Integer = objCommand.ExecuteNonQuery()
+            If intDeleted = 1 Then
+                MsgBox(" Data Has Been Delete", MsgBoxStyle.Critical + MsgBoxStyle.Information, "Data Deletion Faliure")
+            Else
+                MsgBox("Database Deleting Was Not successful! Please Note this situation.", MsgBoxStyle.Critical + MsgBoxStyle.Information, "Record Deletion Faliure")
+            End If
+            If Con.State = ConnectionState.Open Then
+                Con.Close()
+            End If
+            With Me.LV
+                If .Items(.Items.Count - 1).Selected Then
+                    intNewSelIndex = .Items.Count - 2
+                Else
+                    intNewSelIndex = .SelectedItems(0).Index
+                End If
+                .SelectedItems(0).Remove()
+                If .Items.Count > 0 Then
+                    .Items(intNewSelIndex).Selected = True
+                Else
+                    ClearCurrRecControls()
+                End If
+            End With
+        Catch ex As Exception
+            MsgBox(ex.Message.ToString)
+        Finally
+        End Try
+    End Sub
+
+    Private Sub btnExit_Click(sender As System.Object, e As System.EventArgs) Handles btnExit.Click
+        If Con.State = ConnectionState.Open Then
+            Con.Close()
+        End If
+        Me.Close()
+    End Sub
+
+
+    Private Sub txtRequisttionDate_KeyPress(sender As System.Object, e As System.Windows.Forms.KeyPressEventArgs) Handles txtRequisttionDate.KeyPress
+        Dim NotAllowedSymbols As String = "~`!@#$%^&*()-_=+{}[]:;'|\<>,.?ABCDEFGHIJKLMNOPQRSTWZabcdefghijklmnopqrstwz*-+`{}[]"
+        If e.KeyChar <> ControlChars.Back Then
+            If NotAllowedSymbols.IndexOf(e.KeyChar) = -1 = False Then
+                'MsgBox("E", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, "Attention...")
+                e.Handled = True
+                Beep()
+                Exit Sub
+            End If
+        End If
+
+    End Sub
+
+    Private Sub txtOrderDate_KeyPress(sender As System.Object, e As System.Windows.Forms.KeyPressEventArgs) Handles txtOrderDate.KeyPress
+        Dim NotAllowedSymbols As String = "~`!@#$%^&*()-_=+{}[]:;'|\<>,.?ABCDEFGHIJKLMNOPQRSTWZabcdefghijklmnopqrstwz"
+        If e.KeyChar <> ControlChars.Back Then
+            If NotAllowedSymbols.IndexOf(e.KeyChar) = -1 = False Then
+                'MsgBox("E", MsgBoxStyle.Critical + MsgBoxStyle.OkOnly, "Attention...")
+                e.Handled = True
+                Exit Sub
+            End If
+        End If
+
+    End Sub
+
+    
+
+    Public Sub CustomExceptionMessage(ByVal e As Exception)
+        'this sub will handle any exception and show the details of it as a messagebox
+        MessageBox.Show("Source : " & e.Source & vbCrLf & "Type : " & _
+        e.GetType.ToString & vbCrLf & "Message : " & _
+        e.Message, "Exception Details", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+    End Sub
+
+    
+
+    Private Sub txtYear_Leave(sender As System.Object, e As System.EventArgs) Handles txtYear.Leave
+        If txtYear.Text.Length = 4 Then
+            If CheckIfYear(txtYear.Text) = False Then
+                MsgBox("You have entered an incorrect year")
+                txtYear.Focus()
+            End If
+        Else
+            MsgBox("Please Enter a Four Digit Date.")
+            txtYear.Focus()
+        End If
+    End Sub
+
+    Private Function CheckIfYear(ByVal sYear As String) As Boolean
+        Try
+            Dim dt As New DateTime(CInt(sYear), 1, 1, 1, 1, 1)
+            Return (True)
+        Catch ex As Exception
+            Return (False)
+        End Try
+    End Function
+
+    
+
+    Private Sub btnNewRequisition_Click(sender As System.Object, e As System.EventArgs) Handles btnNewRequisition.Click
+        Dim activechild As Form = frmMain.MdiParent
+        If (Not activechild Is Nothing) Then
+            Me.ActiveMdiChild.Close()
+        End If
+        Dim frmRequtionNo As New frmNewItemNo
+        'frmRequtionNo.MdiParent = Me
+        frmRequtionNo.Show()
+        frmRequtionNo.StartPosition = FormStartPosition.CenterParent
+        frmRequtionNo.FormBorderStyle = FormBorderStyle.Fixed3D
+        frmRequtionNo.BringToFront()
+    End Sub
+
+    Sub HelpToolTip()
+        ToolTip1.SetToolTip(btnAdd, "Add New Data to DataBase")
+        ToolTip1.SetToolTip(btnCancel, "To Cancel Editing or Updating")
+        ToolTip1.SetToolTip(btnDelete, "To Delete Existing Record")
+        ToolTip1.SetToolTip(btnSave, "Save New Data or Updated Data")
+        ToolTip1.SetToolTip(txtItemCode, "Enter Itemcode Some Data Will filled with automatically")
+
+    End Sub
+
+
+
+    Private Sub txtDescription_TextChanged(sender As System.Object, e As System.EventArgs) Handles txtDescription.TextChanged
+
+
+        Try
+            Con.Open()
+            Dim dt As New DataTable
+            Dim ds As New DataSet
+            ds.Tables.Add(dt)
+            Dim da As New OleDbDataAdapter
+            da = New OleDbDataAdapter("SELECT  ICode, DESCRIPTION, UNIT   FROM  ITEMCODE Where DESCRIPTION like '%" & txtDescription.Text & "%'", Con)
+            da.Fill(dt)
+            For Each DataRow In dt.Rows
+                If txtDescription.Text = dt.Rows(0)("DESCRIPTION").ToString Then
+                    txtItemCode.Text = dt.Rows(0)("ICode").ToString
+                    txtDescription.Text = dt.Rows(0)("DESCRIPTION").ToString
+                    txtUnit.Text = dt.Rows(0)("UNIT").ToString
+                    cmbRequisition.Focus()
+                    Con.Close()
+                    Return
+                End If
+            Next
+
+            Return
+
+        Catch ex As Exception
+            MsgBox(ex.ToString)
+        Finally
+            If Con.State = ConnectionState.Open Then
+                Con.Close()
+            End If
+        End Try
+        Con.Close()
+    End Sub
+
+   
+End Class
+
+
+
